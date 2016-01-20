@@ -17,6 +17,9 @@ var _          = require('lodash'),
 LOGGLY_URL_BASE          = 'https://logs-01.loggly.com/bulk/';
 BUCKET_LOGGLY_TOKEN_NAME = 'loggly-customer-token';
 BUCKET_LOGGLY_TAG_NAME   = 'loggly-tag';
+BUCKET_FILE_WHITE_LIST   = 'white-list';
+EB_ACC_APP               = 'ebs-acc-app';
+EB_ACC_PRD               = 'ebs-prd-app';
 
 // Used if no S3 bucket tag doesn't contain customer token.
 // Note: You either need to specify a cutomer token in this script or via the S3 bucket tag else an error is logged.
@@ -77,6 +80,26 @@ exports.handler = function (event, context) {
                             }
                             else {
                                 LOGGLY_URL = DEFAULT_LOGGLY_URL
+                            }
+
+                            if (s3tag[BUCKET_FILE_WHITE_LIST]) {
+                                var ignoreList = s3tag[BUCKET_FILE_WHITE_LIST].split(',');
+                                ignoreList.forEach(function(item){
+                                    var string = item.split(':')[0],
+                                        tag    = item.split(':')[1] ? item.split(':')[1] : '';
+                                    if (key.indexOf(string) === -1) {
+                                        next('File (' + key + ') is not in the white list.');
+                                    } else {
+                                        LOGGLY_URL += ',' + tag;
+                                        if (key.indexOf(s3tag[EB_ACC_APP]) !== -1) {
+                                            LOGGLY_URL += ',acc';
+                                        } else if (key.indexOf(s3tag[EB_PRD_APP]) !== -1) {
+                                            LOGGLY_URL += ',prd';
+                                        } else {
+                                            next('Could not determine the environment (acc or prd) for key:' + key);
+                                        }
+                                    }
+                                });
                             }
                         }
 
